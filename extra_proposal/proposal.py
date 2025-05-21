@@ -374,58 +374,6 @@ class Proposal:
 
         return run_match
 
-    def a(self, b):
-        # I don't recall anymore what I was trying to do here...
-
-        def run_ranges(sequence):
-            # Adapted from:
-            #  https://stackoverflow.com/questions/3429510/pythonic-way-to-convert-a-list-of-integers-into-a-string-of-comma-separated-rang
-
-            # relevant to DAMNIT
-            sequence = np.unique(sequence)
-
-            grouped_sequence = (
-                list(x) for _, x in groupby(sequence, lambda x, c=count(): next(c) - x)
-            )
-            return (
-                ",".join(
-                    "-".join(map(str, (gi[0], gi[-1])[: len(gi)]))
-                    for gi in grouped_sequence
-                ),
-                sequence.size,
-            )
-
-        module_string = "CH0:xtdf"
-        print(b)
-
-        detector_sources = [ri.split("/") for ri in list(b.detector_sources)]
-        detector_path = ["/".join(di[:-1]) for di in detector_sources]
-        detector_module = [di[-1] for di in detector_sources]
-        detector, index = np.unique(
-            ["/".join(di[:-1]) for di in detector_sources], return_index=True
-        )
-
-        for i in index:
-            print(detector_module[detector_path == detector[index[i]]])
-            print([ci.split(module_string)[0] for ci in detector_module])
-            print(
-                [
-                    ci.split(module_string)[0]
-                    for ci in (detector_module[detector_path == detector[index[i]]])
-                ]
-            )
-            print(
-                detector_path,
-                "/",
-                run_ranges(
-                    [
-                        int(ci.split(module_string)[0])
-                        for ci in detector_module[detector_module == detector[index[i]]]
-                    ]
-                )[0],
-                module_string,
-            )
-
 
 if __name__ == "__main__":
     proposal = Proposal(5686)
