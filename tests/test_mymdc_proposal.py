@@ -7,7 +7,7 @@ from extra_proposal import Proposal
 
 
 # Helper function to mock requests.get() for different endpoints
-def mock_get(url, headers, timeout):
+def mock_get(url, *, headers, **kwargs):
     assert headers["X-API-key"] == "foo"
 
     if "proposals/by_number" in url:
@@ -36,6 +36,7 @@ def mock_get(url, headers, timeout):
 
     response = MagicMock()
     response.json.return_value = result
+    response.status_code = 200
     return response
 
 

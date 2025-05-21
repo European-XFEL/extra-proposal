@@ -103,7 +103,7 @@ class MyMdcAccess:
         if resp.content == b"":
             return None
         else:
-            return json.loads(resp.content.decode("utf-8"))
+            return resp.json()
 
     def get(self, relative_url, params=None, **kwargs):
         """Make a GET request, return response content from JSON"""
