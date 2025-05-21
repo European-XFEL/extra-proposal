@@ -189,6 +189,9 @@ class Proposal:
         self._enable_cache = enable_cache
         self._timeout = 10
 
+    def __repr__(self):
+        return f"Proposal({self._proposal_number})"
+
     @property
     def proposal_number(self):
         return self._proposal_number
