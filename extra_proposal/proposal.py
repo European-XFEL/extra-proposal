@@ -42,7 +42,7 @@ class RunReference:
 
     def data(self):
         from extra_data import open_run
-        return open_run(self.proposal.proposal_directory, self.run_num)
+        return open_run(self.proposal.directory, self.run_num)
 
     def damnit(self):
         return self.proposal.damnit[self.run_num]
@@ -97,7 +97,7 @@ class RunReference:
         ax2.set_title("Time taken in each state")
         ax2.grid(axis="y")
 
-        fig.suptitle(f"p{self.proposal}, r{self.run_num} - {self.run_type()} - {self.sample_name()}")
+        fig.suptitle(f"p{self.proposal.number}, r{self.run_num} - {self.run_type()} - {self.sample_name()}")
 
         fig.tight_layout()
 
@@ -144,43 +144,32 @@ class Proposal:
         # proposal ID and number
         if isinstance(proposal, str):
             if proposal[0] == "p":
-                self.proposal = proposal
-                self._proposal_number = int(self.proposal[1:])
+                proposal = proposal[1:]
 
-            else:
-                self.proposal = "p{:06d}".format(int(proposal))
-                self._proposal_number = int(proposal)
-
+            self.number = int(proposal)
+            self.directory_name = "p{:06d}".format(self.number)
         else:
-            self.proposal = "p{:06d}".format(proposal)
-            self._proposal_number = proposal
+            self.number = proposal
+            self.directory_name = "p{:06d}".format(proposal)
 
         # is there a proposal with this ID?
-        self._proposal_directory = find_proposal(self.proposal).absolute()
+        self.directory = find_proposal(self.directory_name).absolute()
 
-        logger.info("Found proposal {}.".format(self.proposal))
+        logger.info("Found proposal {}.".format(self.directory_name))
 
         if user_id is not None:
             self.mymdc = MyMdcAccess.oauth(
                 client_id=user_id, client_secret=user_secret, user_email=user_email,
             )
         else:
-            self.mymdc = MyMdcAccess.zwop(self._proposal_number)
+            self.mymdc = MyMdcAccess.zwop(self.number)
 
         self._cached_data = {}
         self._enable_cache = enable_cache
         self._timeout = 10
 
     def __repr__(self):
-        return f"Proposal({self._proposal_number})"
-
-    @property
-    def proposal_number(self):
-        return self._proposal_number
-
-    @property
-    def proposal_directory(self):
-        return self._proposal_directory
+        return f"Proposal({self.number})"
 
     def __getitem__(self, run) -> RunReference:
         return RunReference(self, run)  # TODO: check that run exists?
@@ -189,7 +178,7 @@ class Proposal:
     def damnit(self):
         from damnit import Damnit  # Optional dependency
 
-        return Damnit(self._proposal_number)
+        return Damnit(self.number)
 
     def _get_runs_filesystem(self) -> list[int]:
         """List runs available in RAW.
@@ -200,13 +189,13 @@ class Proposal:
         _runs_filesystem = sorted(
             [
                 int(di.split("/")[-1][1:])
-                for di in glob.glob("{}/raw/r????".format(self._proposal_directory))
+                for di in glob.glob("{}/raw/r????".format(self.directory))
             ]
         )
         return _runs_filesystem
 
     def _by_number_api_url(self, suffix=""):
-        return f"proposals/by_number/{self._proposal_number}{suffix}"
+        return f"proposals/by_number/{self.number}{suffix}"
 
     @cached_property
     def _mymdc_info(self):
@@ -233,7 +222,7 @@ class Proposal:
         data = self.mymdc.get(self._by_number_api_url("/runs/{run}"),
                                    timeout=self._timeout)
         if len(data["runs"]) == 0:
-            raise RuntimeError(f"Couldn't get run information from mymdc for p{self.proposal}, r{run}")
+            raise RuntimeError(f"Couldn't get run information from mymdc for p{self.number}, r{run}")
 
         return data["runs"][0]
 
@@ -292,7 +281,7 @@ class Proposal:
 
     @property
     def instrument(self):
-        return self._proposal_directory.relative_to(DATA_ROOT_DIR).parts[0]
+        return self.directory.relative_to(DATA_ROOT_DIR).parts[0]
 
     def info(self):
         """Display information on a given proposal."""
@@ -319,10 +308,10 @@ class Proposal:
 
         print(
             "Proposal {} ── scientific instrument {}".format(
-                self._proposal_number, self.instrument
+                self.number, self.instrument
             )
         )
-        print(f"Data stored at {self._proposal_directory}")
+        print(f"Data stored at {self.directory}")
 
         # title
         if self.title is not None:
