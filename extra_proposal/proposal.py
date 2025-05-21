@@ -122,7 +122,7 @@ def _cache_by_run(func):
 class Proposal:
     def __init__(
         self,
-        proposal: Optional[int | str] = None,
+        proposal: int | str,
         user_id: Optional[str] = None,
         user_secret: Optional[str] = None,
         user_email: Optional[str] = None,
@@ -130,12 +130,10 @@ class Proposal:
         enable_cache=True,
     ):
         """Proposal object.
-        It can be instantiated as:
-        1. proposal = Proposal(), if in a proposal directory.
-        2. proposal = Proposal(2112)
+        It can be instantiated as Proposal(2112) or Proposal("p002112")
 
         Args:
-            proposal (Optional[int  |  str], optional): Proposal number. Defaults to None.
+            proposal (int | str): Proposal number.
             user_id (Optional[str], optional): UID (can be generated at https://in.xfel.eu/metadata/oauth/applications). Defaults to None.
             user_secret (Optional[str], optional): Secret (can be generated at https://in.xfel.eu/metadata/oauth/applications). Defaults to None.
             user_email (Optional[str], optional): User's email. Defaults to None.
@@ -143,22 +141,6 @@ class Proposal:
         Raises:
             ProposalNotFoundError: The proposal does not exist.
         """
-
-        if proposal is None:
-            # are we in a proposal folder?
-            cwd = os.getcwd()
-
-            if cwd.startswith(str(DATA_ROOT_DIR)):
-                try:
-                    proposal = cwd.replace(str(DATA_ROOT_DIR), "").split(
-                        "/"
-                    )[3]
-
-                except:
-                    raise TypeError(
-                        "Unable to infer a proposal ID, please specify one."
-                    )
-
         # proposal ID and number
         if isinstance(proposal, str):
             if proposal[0] == "p":
