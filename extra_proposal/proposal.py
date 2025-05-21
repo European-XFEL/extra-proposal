@@ -1,0 +1,463 @@
+import os
+import logging
+import glob
+import re
+from datetime import datetime
+from functools import cached_property, wraps
+from glob import iglob
+from itertools import count, groupby
+from pathlib import Path
+from typing import Any, Optional
+
+import numpy as np
+
+from .mymdc import MyMdcAccess
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+
+class ProposalNotFoundError(Exception):
+    """
+    Raised when the proposal is not found.
+    """
+
+    pass
+
+
+DATA_ROOT_DIR = Path(os.environ.get('EXTRA_DATA_DATA_ROOT', '/gpfs/exfel/exp'))
+
+# Copied from extra-data
+def find_proposal(propno):
+    for d in iglob(str(DATA_ROOT_DIR / f'*/*/{propno}')):
+        return Path(d)
+
+    raise ProposalNotFoundError(f"Proposal {propno!r} was not found")
+
+
+class RunReference:
+    def __init__(self, proposal: 'Proposal', run_num: int):
+        self.proposal = proposal
+        self.run_num = run_num
+
+    def data(self):
+        from extra_data import open_run
+        return open_run(self.proposal.proposal_directory, self.run_num)
+
+    def damnit(self):
+        return self.proposal.damnit[self.run_num]
+
+    def sample_name(self):
+        return self.proposal.run_sample_name(self.run_num)
+
+    def run_type(self):
+        return self.proposal.run_type(self.run_num)
+
+    def plot_timeline(self):
+        import matplotlib.pyplot as plt
+
+        run_info = self.proposal._run_info(self.run_num)
+        cal_requests = run_info["cal_num_requests"]
+        event_names = {
+            "Run begin": "begin_at",
+            "Run end": "end_at",
+            "Migration requested": "migration_request_at",
+            "Migration begin": "migration_begin_at",
+            "Migration end": "migration_end_at",
+            "Cal begin": "cal_last_begin_at",
+            "Cal end": "cal_last_end_at"
+        }
+
+        events = dict()
+        for name, key in event_names.items():
+            if run_info[key] is not None:
+                events[name] = datetime.fromisoformat(run_info[key])
+
+        times = dict()
+        if "Run end" in events and "Run begin" in events:
+            times["Run"] = events["Run end"] - events["Run begin"]
+        if "Migration end" in events and "Migration begin" in events:
+            times["Migration"] = events["Migration end"] - events["Migration begin"]
+        if "Cal end" in events and "Cal begin" in events:
+            key = "Calibration" if cal_requests == 1 else f"Calibration attempt {cal_requests}"
+            times[key] = events["Cal end"] - events["Cal begin"]
+
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 5))
+        for (event, x) in events.items():
+            if not (event.startswith("Cal") and cal_requests > 1):
+                ax1.scatter(x, 1, label=event)
+
+        ax1.legend(bbox_to_anchor=(1.01, 1.05))
+        ax1.tick_params(left=False, labelleft=False)
+        ax1.set_title("Timeline of run events")
+        ax1.grid(axis="x")
+
+        ax2.bar(times.keys(), [x.total_seconds() / 60 for x in times.values()])
+        ax2.set_ylabel("Time [minutes]")
+        ax2.set_title("Time taken in each state")
+        ax2.grid(axis="y")
+
+        fig.suptitle(f"p{self.proposal}, r{self.run_num} - {self.run_type()} - {self.sample_name()}")
+
+        fig.tight_layout()
+
+        return ax1
+
+def _cache_by_run(func):
+    @wraps(func)
+    def wrapper(self: 'Proposal', run):
+        key = (run, func.__name__)
+        if self._enable_cache and key in self._cached_data:
+            return self._cached_data[key]
+
+        value = func(self, run)
+        if self._enable_cache:
+            self._cached_data[key] = value
+
+        return value
+
+    return wrapper
+
+
+class Proposal:
+    def __init__(
+        self,
+        proposal: Optional[int | str] = None,
+        user_id: Optional[str] = None,
+        user_secret: Optional[str] = None,
+        user_email: Optional[str] = None,
+        timeout=10,
+        enable_cache=True,
+    ):
+        """Proposal object.
+        It can be instantiated as:
+        1. proposal = Proposal(), if in a proposal directory.
+        2. proposal = Proposal(2112)
+
+        Args:
+            proposal (Optional[int  |  str], optional): Proposal number. Defaults to None.
+            user_id (Optional[str], optional): UID (can be generated at https://in.xfel.eu/metadata/oauth/applications). Defaults to None.
+            user_secret (Optional[str], optional): Secret (can be generated at https://in.xfel.eu/metadata/oauth/applications). Defaults to None.
+            user_email (Optional[str], optional): User's email. Defaults to None.
+
+        Raises:
+            ProposalNotFoundError: The proposal does not exist.
+        """
+
+        if proposal is None:
+            # are we in a proposal folder?
+            cwd = os.getcwd()
+
+            if cwd.startswith(str(DATA_ROOT_DIR)):
+                try:
+                    proposal = cwd.replace(str(DATA_ROOT_DIR), "").split(
+                        "/"
+                    )[3]
+
+                except:
+                    raise TypeError(
+                        "Unable to infer a proposal ID, please specify one."
+                    )
+
+        # proposal ID and number
+        if isinstance(proposal, str):
+            if proposal[0] == "p":
+                self.proposal = proposal
+                self._proposal_number = int(self.proposal[1:])
+
+            else:
+                self.proposal = "p{:06d}".format(int(proposal))
+                self._proposal_number = int(proposal)
+
+        else:
+            self.proposal = "p{:06d}".format(proposal)
+            self._proposal_number = proposal
+
+        # is there a proposal with this ID?
+        self._proposal_directory = find_proposal(self.proposal).absolute()
+
+        logger.info("Found proposal {}.".format(self.proposal))
+
+        if user_id is not None:
+            self.mymdc = MyMdcAccess.oauth(
+                client_id=user_id, client_secret=user_secret, user_email=user_email,
+            )
+        else:
+            self.mymdc = MyMdcAccess.zwop(self._proposal_number)
+
+        self._cached_data = {}
+        self._enable_cache = enable_cache
+        self._timeout = 10
+
+    @property
+    def proposal_number(self):
+        return self._proposal_number
+
+    @property
+    def proposal_directory(self):
+        return self._proposal_directory
+
+    def __getitem__(self, run) -> RunReference:
+        return RunReference(self, run)  # TODO: check that run exists?
+
+    @cached_property
+    def damnit(self):
+        from damnit import Damnit  # Optional dependency
+
+        return Damnit(self._proposal_number)
+
+    def _get_runs_filesystem(self) -> list[int]:
+        """List runs available in RAW.
+
+        Returns:
+            list[int]: List of runs.
+        """
+        _runs_filesystem = sorted(
+            [
+                int(di.split("/")[-1][1:])
+                for di in glob.glob("{}/raw/r????".format(self._proposal_directory))
+            ]
+        )
+        return _runs_filesystem
+
+    def _by_number_api_url(self, suffix=""):
+        return f"proposals/by_number/{self._proposal_number}{suffix}"
+
+    @cached_property
+    def _mymdc_info(self):
+        return self.mymdc.get(self._by_number_api_url())
+
+    def _get_runs_mymdc(self) -> list:
+        return self.mymdc.get(self._by_number_api_url("/runs"))["runs"]
+
+    @property
+    def title(self):
+        return self._mymdc_info["title"]
+
+    def runs(self) -> list[int]:
+        """Runs available in RAW.
+
+        Returns:
+            list[int]: List of runs.
+        """
+        return self._get_runs_filesystem()
+
+
+    @_cache_by_run
+    def _run_info(self, run: int) -> dict[str, Any]:
+        data = self.mymdc.get(self._by_number_api_url("/runs/{run}"),
+                                   timeout=self._timeout)
+        if len(data["runs"]) == 0:
+            raise RuntimeError(f"Couldn't get run information from mymdc for p{self.proposal}, r{run}")
+
+        return data["runs"][0]
+
+    @_cache_by_run
+    def run_techniques(self, run: int) -> dict[str, Any]:
+        run_info = self._run_info(run)
+        data = self.mymdc.get(f'runs/{run_info["id"]}', timeout=self._timeout)
+        return data['techniques']
+
+    @_cache_by_run
+    def run_sample_name(self, run: int) -> str:
+        run_info = self._run_info(run)
+        sample_id = run_info["sample_id"]
+        data = self.mymdc.get(f"samples/{sample_id}", timeout=self._timeout)
+        return data["name"]
+
+    @_cache_by_run
+    def run_type(self, run: int) -> str:
+        run_info = self._run_info(run)
+        experiment_id = run_info["experiment_id"]
+        data = self.mymdc.get(f"experiments/{experiment_id}",
+                                       timeout=self._timeout)
+
+        return data["name"]
+
+    def _get_samples_mymdc(self) -> list:
+        prop_id = self._mymdc_info["id"]
+        return self.mymdc.get("samples", params={"proposal_id": prop_id})
+
+    def samples_table(self):
+        import pandas as pd
+        runs_metadata = self._get_runs_mymdc()
+
+        name, index, url, description, runs = [], [], [], [], []
+        for si in self._get_samples_mymdc():
+            _runs = []
+            for ri in runs_metadata:
+                if ri["sample_id"] == si["id"]:
+                    _runs.append(ri["run_number"])
+
+            name.append(si["name"])
+            index.append(si["id"])
+            url.append(si["url"])
+            description.append(si["description"])
+            runs.append(_runs)
+
+        return pd.DataFrame.from_dict(
+            {
+                "name": name,
+                "id": index,
+                "url": url,
+                "description": description,
+                "runs": runs,
+            }
+        )
+
+    @property
+    def instrument(self):
+        return self._proposal_directory.relative_to(DATA_ROOT_DIR).parts[0]
+
+    def info(self):
+        """Display information on a given proposal."""
+
+        # runs available in myMdC, and other information
+
+        def run_ranges(sequence):
+            # Adapted from:
+            #  https://stackoverflow.com/questions/3429510/pythonic-way-to-convert-a-list-of-integers-into-a-string-of-comma-separated-rang
+
+            # relevant to DAMNIT
+            sequence = np.unique(sequence)
+
+            grouped_sequence = (
+                list(x) for _, x in groupby(sequence, lambda x, c=count(): next(c) - x)
+            )
+            return (
+                ",".join(
+                    "-".join(map(str, (gi[0], gi[-1])[: len(gi)]))
+                    for gi in grouped_sequence
+                ),
+                sequence.size,
+            )
+
+        print(
+            "Proposal {} ── scientific instrument {}".format(
+                self._proposal_number, self.instrument
+            )
+        )
+        print(f"Data stored at {self._proposal_directory}")
+
+        # title
+        if self.title is not None:
+            print("'{}'".format(self.title))
+
+        # runs
+        runs = self.runs()
+        print("\nRuns collected: {} (total {})".format(*run_ranges(runs)))
+        if self.damnit is not None:
+            grouped_sequence, size = run_ranges(self.damnit.runs())
+            print(
+                " └── {:.1f}% processed by DAMNIT".format(100 * size / len(runs)),
+                end="",
+            )
+            if size != len(runs):
+                print(": {} (total {})".format(grouped_sequence, size))
+            else:
+                print(".")
+
+    def search_source(
+        self, regex: str, run: Optional[int | list[int]] = None
+    ) -> dict[list[str]]:
+        """Perform a case insensitive search of the regex in all data sources and aliases.
+
+        Args:
+            regex (str): The regular expression.
+            run (Optional[int  |  list[int]], optional): Specific run or list of runs. Defaults to None.
+
+        Returns:
+            list[list[str]]: A dictionary of runs, and for each a list of strings matching the regular expression.
+
+        Example:
+            proposal = Extra(1234)
+            run = proposal[42]
+
+            run.search_sources("energy")
+        """
+
+        # TODO: look into aliases
+
+        run_list = []
+        if run is None:
+            run_list = self.runs()
+        elif type(run) is int:
+            run_list = [run]
+        elif type(run) is list:
+            run_list = run
+            if not all(type(i) is int for i in run):
+
+                logger.error("Each entry in the list must be an integer (run number)")
+                raise TypeError
+        else:
+            logger.error("{} is not supported".format(type(run)))
+            raise TypeError
+
+        run_match = {}
+        for ri in run_list:
+            run_match[ri] = []
+            for si in self[ri][0].all_sources:
+                if re.search(regex, si, re.IGNORECASE):
+                    logger.info("{}".format(si))
+
+                    run_match[ri].append(si)
+
+        return run_match
+
+    def a(self, b):
+        # I don't recall anymore what I was trying to do here...
+
+        def run_ranges(sequence):
+            # Adapted from:
+            #  https://stackoverflow.com/questions/3429510/pythonic-way-to-convert-a-list-of-integers-into-a-string-of-comma-separated-rang
+
+            # relevant to DAMNIT
+            sequence = np.unique(sequence)
+
+            grouped_sequence = (
+                list(x) for _, x in groupby(sequence, lambda x, c=count(): next(c) - x)
+            )
+            return (
+                ",".join(
+                    "-".join(map(str, (gi[0], gi[-1])[: len(gi)]))
+                    for gi in grouped_sequence
+                ),
+                sequence.size,
+            )
+
+        module_string = "CH0:xtdf"
+        print(b)
+
+        detector_sources = [ri.split("/") for ri in list(b.detector_sources)]
+        detector_path = ["/".join(di[:-1]) for di in detector_sources]
+        detector_module = [di[-1] for di in detector_sources]
+        detector, index = np.unique(
+            ["/".join(di[:-1]) for di in detector_sources], return_index=True
+        )
+
+        for i in index:
+            print(detector_module[detector_path == detector[index[i]]])
+            print([ci.split(module_string)[0] for ci in detector_module])
+            print(
+                [
+                    ci.split(module_string)[0]
+                    for ci in (detector_module[detector_path == detector[index[i]]])
+                ]
+            )
+            print(
+                detector_path,
+                "/",
+                run_ranges(
+                    [
+                        int(ci.split(module_string)[0])
+                        for ci in detector_module[detector_module == detector[index[i]]]
+                    ]
+                )[0],
+                module_string,
+            )
+
+
+if __name__ == "__main__":
+    proposal = Proposal(5686)
+    proposal.info()
+    print("Run 42 sample:", proposal[42].sample_name())
