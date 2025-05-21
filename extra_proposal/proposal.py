@@ -359,7 +359,7 @@ class Proposal:
 
     def search_source(
         self, regex: str, run: Optional[int | list[int]] = None
-    ) -> dict[list[str]]:
+    ) -> dict[int, list[str]]:
         """Perform a case insensitive search of the regex in all data sources and aliases.
 
         Args:
@@ -367,18 +367,17 @@ class Proposal:
             run (Optional[int  |  list[int]], optional): Specific run or list of runs. Defaults to None.
 
         Returns:
-            list[list[str]]: A dictionary of runs, and for each a list of strings matching the regular expression.
+            dict[int, list[str]]: A dictionary of runs, and for each a list of
+            strings matching the regular expression.
 
         Example:
-            proposal = Extra(1234)
-            run = proposal[42]
+            proposal = Proposal(1234)
 
-            run.search_sources("energy")
+            proposal.search_sources("energy")
         """
 
         # TODO: look into aliases
 
-        run_list = []
         if run is None:
             run_list = self.runs()
         elif type(run) is int:
@@ -386,17 +385,14 @@ class Proposal:
         elif type(run) is list:
             run_list = run
             if not all(type(i) is int for i in run):
-
-                logger.error("Each entry in the list must be an integer (run number)")
-                raise TypeError
+                raise TypeError("Each entry in the list must be an integer (run number)")
         else:
-            logger.error("{} is not supported".format(type(run)))
-            raise TypeError
+            raise TypeError(f"{type(run)} is not supported")
 
         run_match = {}
         for ri in run_list:
             run_match[ri] = []
-            for si in self[ri][0].all_sources:
+            for si in self[ri].data().all_sources:
                 if re.search(regex, si, re.IGNORECASE):
                     logger.info("{}".format(si))
 
