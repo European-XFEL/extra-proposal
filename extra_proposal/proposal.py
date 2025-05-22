@@ -1,6 +1,7 @@
-import os
-import logging
+import fnmatch
 import glob
+import logging
+import os
 import re
 from datetime import datetime
 from functools import cached_property, wraps
@@ -14,7 +15,6 @@ import numpy as np
 from .mymdc import MyMdcAccess
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 class ProposalNotFoundError(Exception):
@@ -332,12 +332,12 @@ class Proposal:
                 print(".")
 
     def search_source(
-        self, regex: str, run: Optional[int | list[int]] = None
+        self, pattern: str, run: int | list[int] | None = None
     ) -> dict[int, list[str]]:
         """Perform a case insensitive search of the regex in all data sources and aliases.
 
         Args:
-            regex (str): The regular expression.
+            pattern (str): A glob-style pattern
             run (Optional[int  |  list[int]], optional): Specific run or list of runs. Defaults to None.
 
         Returns:
@@ -347,7 +347,7 @@ class Proposal:
         Example:
             proposal = Proposal(1234)
 
-            proposal.search_sources("energy")
+            proposal.search_sources("*ENERGY*", run=[43, 44, 45, 46])
         """
 
         # TODO: look into aliases
@@ -363,13 +363,13 @@ class Proposal:
         else:
             raise TypeError(f"{type(run)} is not supported")
 
+        source_re = re.compile(fnmatch.translate(pattern))
+
         run_match = {}
         for ri in run_list:
             run_match[ri] = []
             for si in self[ri].data().all_sources:
-                if re.search(regex, si, re.IGNORECASE):
-                    logger.info("{}".format(si))
-
+                if source_re.match(si):
                     run_match[ri].append(si)
 
         return run_match
