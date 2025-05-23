@@ -4,7 +4,7 @@ import logging
 import os
 import re
 from datetime import datetime
-from functools import cached_property, wraps
+from functools import wraps
 from glob import iglob
 from itertools import count, groupby
 from pathlib import Path
@@ -45,7 +45,7 @@ class RunReference:
         return open_run(self.proposal.directory, self.run_num)
 
     def damnit(self):
-        return self.proposal.damnit[self.run_num]
+        return self.proposal.damnit()[self.run_num]
 
     def sample_name(self):
         return self.proposal.run_sample_name(self.run_num)
@@ -174,11 +174,13 @@ class Proposal:
     def __getitem__(self, run) -> RunReference:
         return RunReference(self, run)  # TODO: check that run exists?
 
-    @cached_property
     def damnit(self):
-        from damnit import Damnit  # Optional dependency
+        if 'damnit' in self._cached_data:
+            return self._cached_data['damnit']
 
-        return Damnit(self.number)
+        from damnit import Damnit  # Optional dependency
+        dmnt = self._cached_data['damnit'] = Damnit(self.number)
+        return dmnt
 
     def _get_runs_filesystem(self) -> list[int]:
         """List runs available in RAW.
@@ -197,16 +199,20 @@ class Proposal:
     def _by_number_api_url(self, suffix=""):
         return f"proposals/by_number/{self.number}{suffix}"
 
-    @cached_property
     def _mymdc_info(self):
-        return self.mymdc.get(self._by_number_api_url())
+        if self._enable_cache and 'mymdc_info' in self._cached_data:
+            return self._cached_data['mymdc_info']
+
+        inf = self.mymdc.get(self._by_number_api_url())
+        if self._enable_cache:
+            self._cached_data['mymdc_info'] = inf
+        return inf
 
     def _get_runs_mymdc(self) -> list:
         return self.mymdc.get(self._by_number_api_url("/runs"))["runs"]
 
-    @property
     def title(self):
-        return self._mymdc_info["title"]
+        return self._mymdc_info()["title"]
 
     def runs(self) -> list[int]:
         """Runs available in RAW.
@@ -249,7 +255,7 @@ class Proposal:
         return data["name"]
 
     def _get_samples_mymdc(self) -> list:
-        prop_id = self._mymdc_info["id"]
+        prop_id = self._mymdc_info()["id"]
         return self.mymdc.get("samples", params={"proposal_id": prop_id})
 
     def samples_table(self):
@@ -306,22 +312,18 @@ class Proposal:
                 sequence.size,
             )
 
-        print(
-            "Proposal {} ── scientific instrument {}".format(
-                self.number, self.instrument
-            )
-        )
+        print(f"Proposal {self.number} ── scientific instrument {self.instrument}")
         print(f"Data stored at {self.directory}")
 
         # title
-        if self.title is not None:
-            print("'{}'".format(self.title))
+        if self.title() is not None:
+            print(f"'{self.title()}'")
 
         # runs
         runs = self.runs()
         print("\nRuns collected: {} (total {})".format(*run_ranges(runs)))
-        if self.damnit is not None:
-            grouped_sequence, size = run_ranges(self.damnit.runs())
+        if self.damnit() is not None:
+            grouped_sequence, size = run_ranges(self.damnit().runs())
             print(
                 " └── {:.1f}% processed by DAMNIT".format(100 * size / len(runs)),
                 end="",
