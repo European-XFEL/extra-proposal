@@ -112,12 +112,11 @@ def _cache_by_run(func):
     @wraps(func)
     def wrapper(self: 'Proposal', run):
         key = (run, func.__name__)
-        if self._enable_cache and key in self._cached_data:
+        if key in self._cached_data:
             return self._cached_data[key]
 
         value = func(self, run)
-        if self._enable_cache:
-            self._cached_data[key] = value
+        self._cached_data[key] = value
 
         return value
 
@@ -132,7 +131,6 @@ class Proposal:
         user_secret: Optional[str] = None,
         user_email: Optional[str] = None,
         timeout=10,
-        enable_cache=True,
     ):
         """Proposal object.
         It can be instantiated as Proposal(2112) or Proposal("p002112")
@@ -170,7 +168,6 @@ class Proposal:
             self.mymdc = MyMdcAccess.zwop(self.number)
 
         self._cached_data = {}
-        self._enable_cache = enable_cache
         self._timeout = 10
 
     def __repr__(self):
@@ -206,12 +203,11 @@ class Proposal:
         return f"proposals/by_number/{self.number}{suffix}"
 
     def _mymdc_info(self):
-        if self._enable_cache and 'mymdc_info' in self._cached_data:
+        if 'mymdc_info' in self._cached_data:
             return self._cached_data['mymdc_info']
 
         inf = self.mymdc.get(self._by_number_api_url())
-        if self._enable_cache:
-            self._cached_data['mymdc_info'] = inf
+        self._cached_data['mymdc_info'] = inf
         return inf
 
     def _get_runs_mymdc(self) -> list:
