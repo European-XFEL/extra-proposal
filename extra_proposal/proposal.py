@@ -41,19 +41,24 @@ class RunReference:
         self.run_num = run_num
 
     def data(self):
+        """Open the data of this run with extra_data"""
         from extra_data import open_run
         return open_run(self.proposal.directory, self.run_num)
 
     def damnit(self):
+        """Access DAMNIT results from this run through the damnit API"""
         return self.proposal.damnit()[self.run_num]
 
     def sample_name(self):
+        """Get the sample name from myMdC for this run"""
         return self.proposal.run_sample_name(self.run_num)
 
     def run_type(self):
+        """Get the run type from myMdC for this run"""
         return self.proposal.run_type(self.run_num)
 
     def plot_timeline(self):
+        """Make a timeline of when this run was taken, migrated & calibrated"""
         import matplotlib.pyplot as plt
 
         run_info = self.proposal._run_info(self.run_num)
@@ -175,6 +180,7 @@ class Proposal:
         return RunReference(self, run)  # TODO: check that run exists?
 
     def damnit(self):
+        """Access DAMNIT results from this proposal through the damnit API"""
         if 'damnit' in self._cached_data:
             return self._cached_data['damnit']
 
@@ -212,6 +218,7 @@ class Proposal:
         return self.mymdc.get(self._by_number_api_url("/runs"))["runs"]
 
     def title(self):
+        """Get the proposal title from myMdC"""
         return self._mymdc_info()["title"]
 
     def runs(self) -> list[int]:
