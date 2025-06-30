@@ -21,6 +21,9 @@ dependencies = [
     "matplotlib",
 ]
 
+[tool.flit.module]
+name = "extra_proposal"
+
 [project.optional-dependencies]
 test = [
     "pytest",
