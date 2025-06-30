@@ -336,7 +336,7 @@ class Proposal:
     def search_source(
         self, pattern: str, run: int | list[int] | None = None
     ) -> dict[int, list[str]]:
-        """Perform a case insensitive search of the regex in all data sources and aliases.
+        """Perform a case insensitive search of the glob pattern in all data sources and aliases.
 
         Args:
             pattern (str): A glob-style pattern

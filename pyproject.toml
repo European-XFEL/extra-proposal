@@ -3,7 +3,7 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "extra-proposal"
+name = "EXtra-proposal"
 authors = [
     {name = "James Wrigley", email = "james.wrigley@xfel.eu"},
     {name = "Luca Gelisio", email = "luca.gelisio@xfel.eu"},
