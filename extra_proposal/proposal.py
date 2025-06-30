@@ -25,11 +25,10 @@ class ProposalNotFoundError(Exception):
     pass
 
 
-DATA_ROOT_DIR = Path(os.environ.get('EXTRA_DATA_DATA_ROOT', '/gpfs/exfel/exp'))
-
 # Copied from extra-data
 def find_proposal(propno):
-    for d in iglob(str(DATA_ROOT_DIR / f'*/*/{propno}')):
+    data_root_dir = Path(os.environ.get('EXTRA_DATA_DATA_ROOT', '/gpfs/exfel/exp'))
+    for d in iglob(str(data_root_dir / f'*/*/{propno}')):
         return Path(d)
 
     raise ProposalNotFoundError(f"Proposal {propno!r} was not found")
