@@ -42,7 +42,7 @@ class RunReference:
     def data(self, **kwargs):
         """Open the data of this run with extra_data"""
         from extra_data import open_run
-        return open_run(self.proposal.directory, self.run_num, **kwargs)
+        return open_run(str(self.proposal.directory), self.run_num, **kwargs)
 
     def damnit(self):
         """Access DAMNIT results from this run through the damnit API"""
