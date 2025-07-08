@@ -42,7 +42,7 @@ class RunReference:
     def data(self, **kwargs):
         """Open the data of this run with extra_data"""
         from extra_data import open_run
-        return open_run(self.proposal.directory, self.run_num, **kwargs)
+        return open_run(str(self.proposal.directory), self.run_num, **kwargs)
 
     def damnit(self):
         """Access DAMNIT results from this run through the damnit API"""
@@ -160,11 +160,11 @@ class Proposal:
         logger.info("Found proposal {}.".format(self.directory_name))
 
         if user_id is not None:
-            self.mymdc = MyMdcAccess.oauth(
+            self._mymdc = MyMdcAccess.oauth(
                 client_id=user_id, client_secret=user_secret, user_email=user_email,
             )
         else:
-            self.mymdc = MyMdcAccess.zwop(self.number)
+            self._mymdc = MyMdcAccess.zwop(self.number)
 
         self._cached_data = {}
         self._timeout = 10
@@ -205,12 +205,12 @@ class Proposal:
         if 'mymdc_info' in self._cached_data:
             return self._cached_data['mymdc_info']
 
-        inf = self.mymdc.get(self._by_number_api_url())
+        inf = self._mymdc.get(self._by_number_api_url())
         self._cached_data['mymdc_info'] = inf
         return inf
 
     def _get_runs_mymdc(self) -> list:
-        return self.mymdc.get(self._by_number_api_url("/runs"))["runs"]
+        return self._mymdc.get(self._by_number_api_url("/runs"))["runs"]
 
     def title(self):
         """Get the proposal title from myMdC"""
@@ -227,7 +227,7 @@ class Proposal:
 
     @_cache_by_run
     def _run_info(self, run: int) -> dict[str, Any]:
-        data = self.mymdc.get(self._by_number_api_url("/runs/{run}"),
+        data = self._mymdc.get(self._by_number_api_url("/runs/{run}"),
                                    timeout=self._timeout)
         if len(data["runs"]) == 0:
             raise RuntimeError(f"Couldn't get run information from mymdc for p{self.number}, r{run}")
@@ -237,28 +237,28 @@ class Proposal:
     @_cache_by_run
     def run_techniques(self, run: int) -> dict[str, Any]:
         run_info = self._run_info(run)
-        data = self.mymdc.get(f'runs/{run_info["id"]}', timeout=self._timeout)
+        data = self._mymdc.get(f'runs/{run_info["id"]}', timeout=self._timeout)
         return data['techniques']
 
     @_cache_by_run
     def run_sample_name(self, run: int) -> str:
         run_info = self._run_info(run)
         sample_id = run_info["sample_id"]
-        data = self.mymdc.get(f"samples/{sample_id}", timeout=self._timeout)
+        data = self._mymdc.get(f"samples/{sample_id}", timeout=self._timeout)
         return data["name"]
 
     @_cache_by_run
     def run_type(self, run: int) -> str:
         run_info = self._run_info(run)
         experiment_id = run_info["experiment_id"]
-        data = self.mymdc.get(f"experiments/{experiment_id}",
+        data = self._mymdc.get(f"experiments/{experiment_id}",
                                        timeout=self._timeout)
 
         return data["name"]
 
     def _get_samples_mymdc(self) -> list:
         prop_id = self._mymdc_info()["id"]
-        return self.mymdc.get("samples", params={"proposal_id": prop_id})
+        return self._mymdc.get("samples", params={"proposal_id": prop_id})
 
     def samples_table(self):
         import pandas as pd

@@ -43,7 +43,7 @@ def mock_get(url, *, headers, **kwargs):
 def test_mymdc_proposal(mymdc_credentials):
     prop = Proposal(8034)
 
-    with patch.object(prop.mymdc.session, "get", side_effect=mock_get):
+    with patch.object(prop._mymdc.session, "get", side_effect=mock_get):
         assert prop.run_sample_name(1) == "mithril"
         assert len(prop.run_techniques(1)) == 2
         assert prop.run_type(1) == "alchemy"
