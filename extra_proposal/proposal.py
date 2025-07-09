@@ -25,10 +25,12 @@ class ProposalNotFoundError(Exception):
     pass
 
 
+def data_root_dir():
+    return Path(os.environ.get('EXTRA_DATA_DATA_ROOT', '/gpfs/exfel/exp'))
+
 # Copied from extra-data
 def find_proposal(propno):
-    data_root_dir = Path(os.environ.get('EXTRA_DATA_DATA_ROOT', '/gpfs/exfel/exp'))
-    for d in iglob(str(data_root_dir / f'*/*/{propno}')):
+    for d in iglob(str(data_root_dir() / f'*/*/{propno}')):
         return Path(d)
 
     raise ProposalNotFoundError(f"Proposal {propno!r} was not found")
@@ -289,7 +291,7 @@ class Proposal:
 
     @property
     def instrument(self):
-        return self.directory.relative_to(DATA_ROOT_DIR).parts[0]
+        return self.directory.relative_to(data_root_dir()).parts[0]
 
     def info(self):
         """Display information on a given proposal."""
