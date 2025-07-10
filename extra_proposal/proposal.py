@@ -5,7 +5,6 @@ import os
 import re
 from datetime import datetime
 from functools import wraps
-from glob import iglob
 from itertools import count, groupby
 from pathlib import Path
 from typing import Any, Optional
@@ -30,8 +29,8 @@ def data_root_dir():
 
 # Copied from extra-data
 def find_proposal(propno):
-    for d in iglob(str(data_root_dir() / f'*/*/{propno}')):
-        return Path(d)
+    for d in data_root_dir().glob(f'*/*/{propno}'):
+        return d
 
     raise ProposalNotFoundError(f"Proposal {propno!r} was not found")
 
