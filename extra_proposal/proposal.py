@@ -27,6 +27,7 @@ class ProposalNotFoundError(Exception):
 def data_root_dir():
     return Path(os.environ.get('EXTRA_DATA_DATA_ROOT', '/gpfs/exfel/exp'))
 
+
 # Copied from extra-data
 def find_proposal(propno):
     for d in data_root_dir().glob(f'*/*/{propno}'):
@@ -56,6 +57,10 @@ class RunReference:
     def run_type(self):
         """Get the run type from myMdC for this run"""
         return self.proposal.run_type(self.run_num)
+
+    def techniques(self):
+        """Get the run techniques from myMDC for this run"""
+        return self.proposal.run_techniques(self.run_num)
 
     def plot_timeline(self):
         """Make a timeline of when this run was taken, migrated & calibrated"""
