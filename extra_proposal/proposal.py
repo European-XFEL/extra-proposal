@@ -233,8 +233,8 @@ class Proposal:
 
     @_cache_by_run
     def _run_info(self, run: int) -> dict[str, Any]:
-        data = self._mymdc.get(self._by_number_api_url("/runs/{run}"),
-                                   timeout=self._timeout)
+        data = self._mymdc.get(self._by_number_api_url(f"/runs/{run}"),
+                               timeout=self._timeout)
         if len(data["runs"]) == 0:
             raise RuntimeError(f"Couldn't get run information from mymdc for p{self.number}, r{run}")
 
