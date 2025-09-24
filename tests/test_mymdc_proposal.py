@@ -52,3 +52,37 @@ def test_mymdc_proposal(mymdc_credentials):
         assert isinstance(prop[1].plot_timeline(), plt.Axes)
 
     assert repr(prop) == "Proposal(8034)"
+
+
+def test_damnit_availability(mymdc_credentials):
+    prop = Proposal(8034)
+    mock_damnit_instance = MagicMock()
+
+    with patch('damnit.Damnit') as mock_damnit:
+        mock_damnit.return_value = mock_damnit_instance
+
+        # First call should instantiate Damnit and return the instance
+        res1 = prop.damnit()
+        mock_damnit.assert_called_once_with(8034)
+        assert res1 is mock_damnit_instance
+
+        # Second call should return the cached instance
+        res2 = prop.damnit()
+        mock_damnit.assert_called_once()  # Not called again
+        assert res2 is mock_damnit_instance
+
+
+    prop = Proposal(8034)
+
+    with patch('damnit.Damnit') as mock_damnit:
+        mock_damnit.side_effect = FileNotFoundError
+
+        # First call should return None
+        res1 = prop.damnit()
+        mock_damnit.assert_called_once_with(8034)
+        assert res1 is None
+
+        # Second call should return cached None
+        res2 = prop.damnit()
+        mock_damnit.assert_called_once()  # Not called again
+        assert res2 is None

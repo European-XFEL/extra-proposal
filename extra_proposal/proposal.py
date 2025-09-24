@@ -187,7 +187,11 @@ class Proposal:
             return self._cached_data['damnit']
 
         from damnit import Damnit  # Optional dependency
-        dmnt = self._cached_data['damnit'] = Damnit(self.number)
+        try:
+            dmnt = Damnit(self.number)
+        except FileNotFoundError:
+            dmnt = None
+        self._cached_data['damnit'] = dmnt
         return dmnt
 
     def _get_runs_filesystem(self) -> list[int]:
