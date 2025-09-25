@@ -25,6 +25,7 @@ dependencies = [
 name = "extra_proposal"
 
 [project.optional-dependencies]
+damnit = ["damnit"]
 test = [
     "pytest",
     "pytest-cov"
