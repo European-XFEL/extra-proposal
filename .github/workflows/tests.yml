@@ -32,7 +32,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python3 -m pip install -e .[damnit,test]
+        python3 -m pip install -e .[extra,test]
 
     - name: Test with pytest
       run: |

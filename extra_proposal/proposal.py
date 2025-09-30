@@ -187,11 +187,7 @@ class Proposal:
             return self._cached_data['damnit']
 
         from damnit import Damnit  # Optional dependency
-        try:
-            dmnt = Damnit(self.number)
-        except FileNotFoundError:
-            dmnt = None
-        self._cached_data['damnit'] = dmnt
+        dmnt = self._cached_data['damnit'] = Damnit(self.number)
         return dmnt
 
     def _get_runs_filesystem(self) -> list[int]:
@@ -233,7 +229,6 @@ class Proposal:
             list[int]: List of runs.
         """
         return self._get_runs_filesystem()
-
 
     @_cache_by_run
     def _run_info(self, run: int) -> dict[str, Any]:
@@ -334,7 +329,12 @@ class Proposal:
         # runs
         runs = self.runs()
         print("\nRuns collected: {} (total {})".format(*run_ranges(runs)))
-        if self.damnit() is not None:
+
+        try:
+            self.damnit()
+        except Exception:
+            pass  # there's no DAMNIT database for this proposal
+        else:
             grouped_sequence, size = run_ranges(self.damnit().runs())
             print(
                 " └── {:.1f}% processed by DAMNIT".format(100 * size / len(runs)),

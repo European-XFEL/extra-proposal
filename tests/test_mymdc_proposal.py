@@ -1,7 +1,7 @@
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-import requests
+import pytest
 import matplotlib.pyplot as plt
 from extra_proposal import Proposal
 
@@ -13,17 +13,21 @@ def mock_get(url, *, headers, **kwargs):
     if "proposals/by_number" in url:
         dt = datetime.now().isoformat()
 
-        result = dict(runs=[dict(id=1,
-                                 sample_id=1,
-                                 experiment_id=1,
-                                 cal_num_requests=1,
-                                 begin_at=dt,
-                                 end_at=dt,
-                                 migration_request_at=dt,
-                                 migration_begin_at=dt,
-                                 migration_end_at=dt,
-                                 cal_last_begin_at=dt,
-                                 cal_last_end_at=dt)])
+        result = dict(
+            runs=[dict(id=1,
+                       sample_id=1,
+                       experiment_id=1,
+                       cal_num_requests=1,
+                       begin_at=dt,
+                       end_at=dt,
+                       migration_request_at=dt,
+                       migration_begin_at=dt,
+                       migration_end_at=dt,
+                       cal_last_begin_at=dt,
+                       cal_last_end_at=dt)],
+            title="Test Proposal",
+            id=1234,
+        )
     elif "samples" in url:
         result = dict(name="mithril")
     elif "experiments" in url:
@@ -77,12 +81,13 @@ def test_damnit_availability(mymdc_credentials):
     with patch('damnit.Damnit') as mock_damnit:
         mock_damnit.side_effect = FileNotFoundError
 
-        # First call should return None
-        res1 = prop.damnit()
-        mock_damnit.assert_called_once_with(8034)
-        assert res1 is None
+        with pytest.raises(FileNotFoundError):
+            prop.damnit()
 
-        # Second call should return cached None
-        res2 = prop.damnit()
-        mock_damnit.assert_called_once()  # Not called again
-        assert res2 is None
+        # Second call should fail again
+        with pytest.raises(FileNotFoundError):
+            prop.damnit()
+
+        # smoke test: Proposal.info() still works
+        with patch.object(prop._mymdc.session, "get", side_effect=mock_get):
+            prop.info()

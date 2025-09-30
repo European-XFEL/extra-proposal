@@ -25,11 +25,15 @@ dependencies = [
 name = "extra_proposal"
 
 [project.optional-dependencies]
-damnit = ["damnit"]
+extra = [
+    "extra-data",
+    "damnit",
+    "pandas",
+]
 test = [
     "pytest",
-    "pytest-cov"
+    "pytest-cov",
 ]
 
 [project.urls]
-Home = "https://github.com/European-XFEL/extra-mymdc"
+Home = "https://github.com/European-XFEL/extra-proposal"
