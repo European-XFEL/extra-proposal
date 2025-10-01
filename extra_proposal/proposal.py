@@ -230,7 +230,6 @@ class Proposal:
         """
         return self._get_runs_filesystem()
 
-
     @_cache_by_run
     def _run_info(self, run: int) -> dict[str, Any]:
         data = self._mymdc.get(self._by_number_api_url(f"/runs/{run}"),
@@ -330,7 +329,12 @@ class Proposal:
         # runs
         runs = self.runs()
         print("\nRuns collected: {} (total {})".format(*run_ranges(runs)))
-        if self.damnit() is not None:
+
+        try:
+            self.damnit()
+        except FileNotFoundError:
+            pass  # there's no DAMNIT database for this proposal
+        else:
             grouped_sequence, size = run_ranges(self.damnit().runs())
             print(
                 " └── {:.1f}% processed by DAMNIT".format(100 * size / len(runs)),
