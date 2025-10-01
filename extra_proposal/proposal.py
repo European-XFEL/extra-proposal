@@ -332,7 +332,7 @@ class Proposal:
 
         try:
             self.damnit()
-        except Exception:
+        except FileNotFoundError:
             pass  # there's no DAMNIT database for this proposal
         else:
             grouped_sequence, size = run_ranges(self.damnit().runs())
