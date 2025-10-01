@@ -165,15 +165,27 @@ class Proposal:
 
         logger.info("Found proposal {}.".format(self.directory_name))
 
-        if user_id is not None:
-            self._mymdc = MyMdcAccess.oauth(
-                client_id=user_id, client_secret=user_secret, user_email=user_email,
-            )
-        else:
-            self._mymdc = MyMdcAccess.zwop(self.number)
+        # Store auth details for lazy initialisation of MyMdcAccess
+        self._user_id = user_id
+        self._user_secret = user_secret
+        self._user_email = user_email
+        self._mymdc_inst = None
 
         self._cached_data = {}
         self._timeout = 10
+
+    @property
+    def _mymdc(self):
+        if self._mymdc_inst is None:
+            if self._user_id is not None:
+                self._mymdc_inst = MyMdcAccess.oauth(
+                    client_id=self._user_id,
+                    client_secret=self._user_secret,
+                    user_email=self._user_email,
+                )
+            else:
+                self._mymdc_inst = MyMdcAccess.zwop(self.number)
+        return self._mymdc_inst
 
     def __repr__(self):
         return f"Proposal({self.number})"

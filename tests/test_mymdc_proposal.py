@@ -2,8 +2,11 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 import matplotlib.pyplot as plt
+
 from extra_proposal import Proposal
+from extra_proposal.proposal import ProposalNotFoundError
 
 
 # Helper function to mock requests.get() for different endpoints
@@ -44,7 +47,8 @@ def mock_get(url, *, headers, **kwargs):
     return response
 
 
-def test_mymdc_proposal(mymdc_credentials):
+def test_mymdc_proposal_online(mymdc_credentials):
+    # Test normal operation when MyMdC is available
     prop = Proposal(8034)
 
     with patch.object(prop._mymdc.session, "get", side_effect=mock_get):
@@ -91,3 +95,31 @@ def test_damnit_availability(mymdc_credentials):
         # smoke test: Proposal.info() still works
         with patch.object(prop._mymdc.session, "get", side_effect=mock_get):
             prop.info()
+
+
+def test_proposal_lazy_mymdc_connection(proposal_dir):
+    # Test that Proposal can be instantiated when MyMdC is down
+
+    # simulate ZWOP server being down
+    with patch("extra_proposal.mymdc.requests.post") as mock_post:
+        mock_post.side_effect = requests.ConnectionError("ZWOP server is down")
+
+        # Instantiation succeed
+        prop = Proposal(8034)
+        assert repr(prop) == "Proposal(8034)"
+
+        # Methods not using MyMdc work
+        assert prop.instrument == "MID"
+        assert prop.runs() == [1, 2]
+
+        # Methods using MyMdc should now fail when called
+        with pytest.raises(requests.ConnectionError, match="ZWOP server is down"):
+            prop.title()
+
+        with pytest.raises(requests.ConnectionError, match="ZWOP server is down"):
+            prop.run_sample_name(1)
+
+
+def test_proposal_not_found(proposal_dir):
+    with pytest.raises(ProposalNotFoundError):
+        Proposal(1234)
