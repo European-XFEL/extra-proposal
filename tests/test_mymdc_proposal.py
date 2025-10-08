@@ -51,7 +51,7 @@ def test_mymdc_proposal_online(mymdc_credentials):
     # Test normal operation when MyMdC is available
     prop = Proposal(8034)
 
-    with patch.object(prop._mymdc.session, "get", side_effect=mock_get):
+    with patch.object(prop._mymdc().session, "get", side_effect=mock_get):
         assert prop.run_sample_name(1) == "mithril"
         assert len(prop.run_techniques(1)) == 2
         assert prop.run_type(1) == "alchemy"
@@ -93,7 +93,7 @@ def test_damnit_availability(mymdc_credentials):
             prop.damnit()
 
         # smoke test: Proposal.info() still works
-        with patch.object(prop._mymdc.session, "get", side_effect=mock_get):
+        with patch.object(prop._mymdc().session, "get", side_effect=mock_get):
             prop.info()
 
 
