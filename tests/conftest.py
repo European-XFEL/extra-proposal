@@ -1,13 +1,22 @@
 import yaml
 import pytest
 
+
 @pytest.fixture
-def mymdc_credentials(tmp_path, monkeypatch):
+def proposal_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("EXTRA_DATA_DATA_ROOT", str(tmp_path))
 
     proposal_dir = tmp_path / "MID" / "202501" / "p008034"
     proposal_dir.mkdir(parents=True)
 
+    (proposal_dir / "raw" / "r0001").mkdir(parents=True)
+    (proposal_dir / "raw" / "r0002").mkdir(parents=True)
+
+    yield proposal_dir
+
+
+@pytest.fixture
+def mymdc_credentials(proposal_dir):
     path = proposal_dir / "usr" / "mymdc-credentials.yml"
     path.parent.mkdir()
     with open(path, "w") as f:
