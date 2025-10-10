@@ -1,23 +1,14 @@
 import json
-import os
-from glob import iglob
-from pathlib import Path
 from urllib.parse import urljoin
 
 import yaml
 import requests
 from oauth2_xfel_client import Oauth2ClientBackend
 
+from .utils import find_proposal
+
 MYMDC_BASE_URL = "https://in.xfel.eu/metadata"
 ZWOP_BASE_URL  = "https://exfldadev01.desy.de/zwop"
-
-# Copied from extra-data
-def find_proposal(propno):
-    root_dir = Path(os.environ.get('EXTRA_DATA_DATA_ROOT', '/gpfs/exfel/exp'))
-    for d in iglob(str(root_dir / f'*/*/{propno}')):
-        return Path(d)
-
-    raise Exception(f"Couldn't find proposal dir for {propno!r}")
 
 
 class MyMdcAccess:
