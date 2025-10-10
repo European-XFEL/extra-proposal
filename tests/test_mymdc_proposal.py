@@ -6,7 +6,7 @@ import requests
 import matplotlib.pyplot as plt
 
 from extra_proposal import Proposal
-from extra_proposal.proposal import ProposalNotFoundError
+from extra_proposal.utils import ProposalNotFoundError
 
 
 # Helper function to mock requests.get() for different endpoints

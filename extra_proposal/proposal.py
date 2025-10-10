@@ -1,39 +1,18 @@
 import fnmatch
 import glob
 import logging
-import os
 import re
 from datetime import datetime
 from functools import wraps
 from itertools import count, groupby
-from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
 
 from .mymdc import MyMdcAccess
+from .utils import data_root_dir, find_proposal
 
 logger = logging.getLogger(__name__)
-
-
-class ProposalNotFoundError(Exception):
-    """
-    Raised when the proposal is not found.
-    """
-
-    pass
-
-
-def data_root_dir():
-    return Path(os.environ.get('EXTRA_DATA_DATA_ROOT', '/gpfs/exfel/exp'))
-
-
-# Copied from extra-data
-def find_proposal(propno):
-    for d in data_root_dir().glob(f'*/*/{propno}'):
-        return d
-
-    raise ProposalNotFoundError(f"Proposal {propno!r} was not found")
 
 
 class RunReference:
