@@ -110,7 +110,7 @@ def _cache_by_run(func):
 class Proposal:
     def __init__(
         self,
-        proposal: int | str,
+        proposal,
         user_id: Optional[str] = None,
         user_secret: Optional[str] = None,
         user_email: Optional[str] = None,
@@ -336,7 +336,7 @@ class Proposal:
                 print(".")
 
     def search_source(
-        self, pattern: str, run: int | list[int] | None = None
+        self, pattern: str, run = None
     ) -> dict[int, list[str]]:
         """Perform a case insensitive search of the glob pattern in all data sources and aliases.
 
