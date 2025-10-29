@@ -19,6 +19,7 @@ dependencies = [
     "requests",
     "oauth2_xfel_client",
     "matplotlib",
+    "numpy",
 ]
 
 [tool.flit.module]
