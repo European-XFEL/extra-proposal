@@ -16,33 +16,72 @@ logger = logging.getLogger(__name__)
 
 
 class RunReference:
+    """A reference to a specific run within a proposal.
+
+    Provides access to run data, metadata, and DAMNIT results. Typically
+    obtained by indexing a [Proposal][extra_proposal.Proposal] object.
+
+    Example:
+    ```python
+    prop = Proposal(1234)
+    run = prop[42]  # Returns a RunReference
+    data = run.data()  # Open DAQ data with extra_data
+    ```
+    """
+
     def __init__(self, proposal: 'Proposal', run_num: int):
         self.proposal = proposal
         self.run_num = run_num
 
     def data(self, **kwargs):
-        """Open the data of this run with extra_data"""
+        """Open the data of this run with [extra_data][extra_data].
+
+        Args:
+            **kwargs: Additional arguments passed to [open_run()][extra_data.open_run].
+
+        Returns:
+            (extra_data.DataCollection): A [DataCollection][extra_data.DataCollection] for this run.
+        """
         from extra_data import open_run
         return open_run(str(self.proposal.directory), self.run_num, **kwargs)
 
     def damnit(self):
-        """Access DAMNIT results from this run through the damnit API"""
+        """Access DAMNIT results from this run.
+
+        Returns:
+            (damnit.RunVariables): A [RunVariables][damnit.RunVariables] object for this run.
+        """
         return self.proposal.damnit()[self.run_num]
 
-    def sample_name(self):
-        """Get the sample name from myMdC for this run"""
+    def sample_name(self) -> str:
+        """Get the sample name from myMdC for this run.
+
+        Returns:
+            The sample name.
+        """
         return self.proposal.run_sample_name(self.run_num)
 
-    def run_type(self):
-        """Get the run type from myMdC for this run"""
+    def run_type(self) -> str:
+        """Get the run type from myMdC for this run.
+
+        Returns:
+            The run type (e.g. "Sample", "Dark", "Calibration").
+        """
         return self.proposal.run_type(self.run_num)
 
-    def techniques(self):
-        """Get the run techniques from myMDC for this run"""
+    def techniques(self) -> list[dict]:
+        """Get the run techniques from myMdC for this run.
+
+        Returns:
+            A list of technique dictionaries with 'identifier' and 'name' keys.
+        """
         return self.proposal.run_techniques(self.run_num)
 
     def plot_timeline(self):
-        """Make a timeline of when this run was taken, migrated & calibrated"""
+        """Plot a timeline of when this run was taken, migrated, and calibrated.
+
+        Returns:
+            (matplotlib.axes.Axes): A [matplotlib.axes.Axes][matplotlib.axes.Axes] object."""
         import matplotlib.pyplot as plt
 
         run_info = self.proposal._run_info(self.run_num)
@@ -117,13 +156,13 @@ class Proposal:
         timeout=10,
     ):
         """Proposal object.
-        It can be instantiated as Proposal(2112) or Proposal("p002112")
+        It can be instantiated as `Proposal(2112)` or `Proposal("p002112")`
 
         Args:
-            proposal (int | str): Proposal number.
-            user_id (Optional[str], optional): UID (can be generated at https://in.xfel.eu/metadata/oauth/applications). Defaults to None.
-            user_secret (Optional[str], optional): Secret (can be generated at https://in.xfel.eu/metadata/oauth/applications). Defaults to None.
-            user_email (Optional[str], optional): User's email. Defaults to None.
+            proposal: Proposal number.
+            user_id: UID (can be generated at https://in.xfel.eu/metadata/oauth/applications). Defaults to None.
+            user_secret: Secret (can be generated at https://in.xfel.eu/metadata/oauth/applications). Defaults to None.
+            user_email: User's email. Defaults to None.
 
         Raises:
             ProposalNotFoundError: The proposal does not exist.
@@ -172,7 +211,14 @@ class Proposal:
         return RunReference(self, run)  # TODO: check that run exists?
 
     def damnit(self):
-        """Access DAMNIT results from this proposal through the damnit API"""
+        """Access DAMNIT results from this proposal.
+
+        Returns:
+            (damnit.Damnit): A [Damnit][damnit.Damnit] object for this proposal.
+
+        Raises:
+            FileNotFoundError: If no DAMNIT database exists for this proposal.
+        """
         if 'damnit' in self._cached_data:
             return self._cached_data['damnit']
 
@@ -184,7 +230,7 @@ class Proposal:
         """List runs available in RAW.
 
         Returns:
-            list[int]: List of runs.
+            List of runs.
         """
         _runs_filesystem = sorted(
             [
@@ -208,16 +254,12 @@ class Proposal:
     def _get_runs_mymdc(self) -> list:
         return self._mymdc().get(self._by_number_api_url("/runs"))["runs"]
 
-    def title(self):
+    def title(self) -> str:
         """Get the proposal title from myMdC"""
         return self._mymdc_info()["title"]
 
     def runs(self) -> list[int]:
-        """Runs available in RAW.
-
-        Returns:
-            list[int]: List of runs.
-        """
+        """Get the sorted list of runs available in RAW."""
         return self._get_runs_filesystem()
 
     @_cache_by_run
@@ -230,13 +272,29 @@ class Proposal:
         return data["runs"][0]
 
     @_cache_by_run
-    def run_techniques(self, run: int) -> dict[str, Any]:
+    def run_techniques(self, run: int) -> list[dict]:
+        """Get the techniques associated with a run from myMdC.
+
+        Args:
+            run: The run number.
+
+        Returns:
+            A list of technique dictionaries with 'identifier' and 'name' keys.
+        """
         run_info = self._run_info(run)
         data = self._mymdc().get(f'runs/{run_info["id"]}', timeout=self._timeout)
         return data['techniques']
 
     @_cache_by_run
     def run_sample_name(self, run: int) -> str:
+        """Get the sample name for a run from myMdC.
+
+        Args:
+            run: The run number.
+
+        Returns:
+            The sample name.
+        """
         run_info = self._run_info(run)
         sample_id = run_info["sample_id"]
         data = self._mymdc().get(f"samples/{sample_id}", timeout=self._timeout)
@@ -244,6 +302,14 @@ class Proposal:
 
     @_cache_by_run
     def run_type(self, run: int) -> str:
+        """Get the run type for a run from myMdC.
+
+        Args:
+            run: The run number.
+
+        Returns:
+            The run type (e.g. "Sample", "Dark", "Calibration").
+        """
         run_info = self._run_info(run)
         experiment_id = run_info["experiment_id"]
         data = self._mymdc().get(f"experiments/{experiment_id}",
@@ -256,6 +322,12 @@ class Proposal:
         return self._mymdc().get("samples", params={"proposal_id": prop_id})
 
     def samples_table(self):
+        """Get a table of samples and their associated runs from myMdC.
+
+        Returns:
+            (pandas.DataFrame): A [DataFrame][pandas.DataFrame] with columns 'name', 'id',
+                'url', 'description', and 'runs'.
+        """
         import pandas as pd
         runs_metadata = self._get_runs_mymdc()
 
@@ -283,11 +355,12 @@ class Proposal:
         )
 
     @property
-    def instrument(self):
+    def instrument(self) -> str:
+        """The instrument this proposal belongs to (e.g. "SPB", "MID")."""
         return self.directory.relative_to(data_root_dir()).parts[0]
 
     def info(self):
-        """Display information on a given proposal."""
+        """Print summary information about this proposal."""
 
         # runs available in myMdC, and other information
 
@@ -338,20 +411,27 @@ class Proposal:
     def search_source(
         self, pattern: str, run: int | list[int] | None = None
     ) -> dict[int, list[str]]:
-        """Perform a case insensitive search of the glob pattern in all data sources and aliases.
+        """Search for data sources and aliases matching a glob pattern.
+
+        Performs a case-insensitive search across all data sources and aliases
+        in the specified run(s).
 
         Args:
-            pattern (str): A glob-style pattern
-            run (Optional[int  |  list[int]], optional): Specific run or list of runs. Defaults to None.
+            pattern: A glob-style pattern (e.g. `*xgm*` or `*agipd*`).
+            run: A run number, list of run numbers, or None to search all runs.
 
         Returns:
-            dict[int, list[str]]: A dictionary of runs, and for each a list of
-            strings matching the regular expression.
+            A dictionary mapping run numbers to lists of
+                matching source names and aliases.
+
+        Raises:
+            TypeError: If run is not an int, list of ints, or None.
 
         Example:
-            proposal = Proposal(1234)
-
-            proposal.search_sources("*ENERGY*", run=[43, 44, 45, 46])
+        ```python
+        proposal = Proposal(1234)
+        proposal.search_source("*xgm*", run=[43, 44, 45, 46])
+        ```
         """
 
         if run is None:
