@@ -309,7 +309,7 @@ class Proposal:
                 sequence.size,
             )
 
-        print(f"Proposal {self.number} ── scientific instrument {self.instrument}")
+        print(f"Proposal {self.number} ── {self.instrument} ── https://in.xfel.eu/metadata/proposal_number/{self.number}")
         print(f"Data stored at {self.directory}")
 
         # title
