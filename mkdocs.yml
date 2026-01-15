@@ -1,0 +1,91 @@
+site_name: EXtra-proposal
+site_url: https://extra-proposal.readthedocs.io
+repo_url: https://github.com/european-xfel/extra-proposal
+
+theme:
+  name: material
+  logo: images/logo.jpg
+  favicon: images/logo.jpg
+  icon:
+    repo: fontawesome/brands/github
+  font:
+    text: Open Sans
+  features:
+    - content.code.annotate
+    - content.code.copy
+    - navigation.instant
+    - navigation.indexes
+
+nav:
+  - index.md
+
+watch:
+  - extra_proposal
+
+markdown_extensions:
+  - admonition
+  - codehilite:
+      guess_lang: false
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.saneheaders
+  - pymdownx.emoji
+  - pymdownx.magiclink:
+      repo_url_shorthand: true
+      normalize_issue_symbols: true
+      user: European-XFEL
+      repo: extra-proposal
+  - tables
+  - attr_list
+  - toc:
+      permalink: "¤"
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          inventories:
+          - https://docs.python.org/3/objects.inv
+          - https://extra-data.readthedocs.io/en/latest/objects.inv
+          - https://damnit.readthedocs.io/en/latest/objects.inv
+          - https://numpy.org/doc/stable/objects.inv
+          - https://pandas.pydata.org/docs/objects.inv
+          - https://matplotlib.org/stable/objects.inv
+          - https://docs.xarray.dev/en/stable/objects.inv
+          - https://pint.readthedocs.io/en/stable/objects.inv
+          - https://docs.scipy.org/doc/scipy/objects.inv
+          - https://mpl-interactions.readthedocs.io/en/stable/objects.inv
+          options:
+            docstring_style: google
+            separate_signature: yes
+            show_signature_annotations: yes
+            merge_init_into_class: yes
+            show_submodules: yes
+            members_order: source
+            show_root_heading: yes
+            heading_level: 3
+            show_source: no
+            inherited_members: yes
+            show_symbol_type_toc: yes
+
+extra_css:
+  - css/mkdocstrings.css
+
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
