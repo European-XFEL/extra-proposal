@@ -123,3 +123,16 @@ def test_proposal_lazy_mymdc_connection(proposal_dir):
 def test_proposal_not_found(proposal_dir):
     with pytest.raises(ProposalNotFoundError):
         Proposal(1234)
+
+def test_search_source(proposal_with_run):
+    prop = Proposal(8034)
+
+    # Check case-insensitivity
+    expected_results = { "xgm", "SA2_XTD1_XGM/XGM/DOOCS", "SA2_XTD1_XGM/XGM/DOOCS:output" }
+    result = prop.search_source("*XGM*", run=1)
+    assert set(result[1]) == expected_results
+    assert set(result[1]) == set(prop.search_source("*xgm*", run=1)[1])
+
+    # Check non-existent source
+    result = prop.search_source("*agipd*", run=1)
+    assert result[1] == []

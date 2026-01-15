@@ -354,10 +354,9 @@ class Proposal:
             proposal.search_sources("*ENERGY*", run=[43, 44, 45, 46])
         """
 
-        # TODO: look into aliases
-
         if run is None:
             run_list = self.runs()
+            print(f"Searching through {len(run_list)} runs...")
         elif type(run) is int:
             run_list = [run]
         elif type(run) is list:
@@ -367,14 +366,19 @@ class Proposal:
         else:
             raise TypeError(f"{type(run)} is not supported")
 
-        source_re = re.compile(fnmatch.translate(pattern))
+        source_re = re.compile(fnmatch.translate(pattern.lower()))
 
         run_match = {}
         for ri in run_list:
             run_match[ri] = []
-            for si in self[ri].data().all_sources:
-                if source_re.match(si):
+            dc = self[ri].data()
+
+            for si in dc.all_sources:
+                if source_re.match(si.lower()):
                     run_match[ri].append(si)
+            for alias in dc._aliases.keys():
+                if source_re.match(alias.lower()):
+                    run_match[ri].append(alias)
 
         return run_match
 

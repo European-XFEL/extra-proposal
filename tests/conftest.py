@@ -1,6 +1,9 @@
 import yaml
 import pytest
 
+from extra_data.tests.mockdata import write_file
+from extra_data.tests.mockdata.xgm import XGM
+
 
 @pytest.fixture
 def proposal_dir(tmp_path, monkeypatch):
@@ -26,3 +29,17 @@ def mymdc_credentials(proposal_dir):
         }, f)
 
     yield path
+
+
+@pytest.fixture
+def proposal_with_run(proposal_dir):
+    run_dir = proposal_dir / "raw" / "r0001"
+    write_file(run_dir / "RAW-R0001-DA01-S00000.h5", [
+        XGM("SA2_XTD1_XGM/XGM/DOOCS"),
+    ], ntrains=10)
+
+    aliases_path = proposal_dir / "usr" / "extra-data-aliases.yml"
+    aliases_path.parent.mkdir()
+    aliases_path.write_text("xgm: SA2_XTD1_XGM/XGM/DOOCS")
+
+    yield proposal_dir
