@@ -190,7 +190,7 @@ class Proposal:
         self._mymdc_inst = None
 
         self._cached_data = {}
-        self._timeout = 10
+        self._timeout = timeout
 
     def _mymdc(self):
         if self._mymdc_inst is None:
