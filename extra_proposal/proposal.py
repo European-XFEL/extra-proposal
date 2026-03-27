@@ -190,7 +190,7 @@ class Proposal:
         self._mymdc_inst = None
 
         self._cached_data = {}
-        self._timeout = 10
+        self._timeout = timeout
 
     def _mymdc(self):
         if self._mymdc_inst is None:
@@ -251,8 +251,26 @@ class Proposal:
         self._cached_data['mymdc_info'] = inf
         return inf
 
-    def _get_runs_mymdc(self) -> list:
-        return self._mymdc().get(self._by_number_api_url("/runs"))["runs"]
+    def _get_runs_mymdc(self, page_size: int = 500) -> list:
+        """List all runs for this proposal from myMdC"""
+        if not (1 <= page_size <= 500):
+            raise ValueError("page_size must be between 1 and 500")
+
+        runs = []
+        page = 1
+        while True:
+            data = self._mymdc().get(
+                self._by_number_api_url("/runs"),
+                params={"page_size": page_size, "page": page},
+                timeout=self._timeout,
+            )
+            page_runs = data.get("runs", [])
+            runs.extend(page_runs)
+            if len(page_runs) < page_size:
+                break
+            page += 1
+
+        return runs
 
     def title(self) -> str:
         """Get the proposal title from myMdC"""
