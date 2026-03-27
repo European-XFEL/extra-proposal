@@ -10,24 +10,45 @@ from extra_proposal.utils import ProposalNotFoundError
 
 
 # Helper function to mock requests.get() for different endpoints
-def mock_get(url, *, headers, **kwargs):
+def mock_get(url, *, headers, params=None, **kwargs):
     assert headers["X-API-key"] == "foo"
+    params = params or {}
+    dt = datetime.now().isoformat()
 
-    if "proposals/by_number" in url:
-        dt = datetime.now().isoformat()
+    def run_entry(run_number):
+        return dict(
+            id=run_number,
+            run_number=run_number,
+            sample_id=1,
+            experiment_id=1,
+            cal_num_requests=1,
+            begin_at=dt,
+            end_at=dt,
+            migration_request_at=dt,
+            migration_begin_at=dt,
+            migration_end_at=dt,
+            cal_last_begin_at=dt,
+            cal_last_end_at=dt,
+        )
 
+    if "proposals/by_number" in url and "/runs/" in url:
+        # Run info for a specific run, e.g. /proposals/by_number/{id}/runs/{run}
+        run_number = int(url.rstrip("/").split("/")[-1])
+        result = dict(runs=[run_entry(run_number)])
+    elif url.endswith("/runs"):
+        # Paginated list of runs for a proposal
+        page = int(params.get("page", 1))
+        page_size = int(params.get("page_size", 100))
+        all_runs = [run_entry(1), run_entry(2), run_entry(3), run_entry(4)]
+        start = (page - 1) * page_size
+        end = start + page_size
+        result = {
+            "proposal": {"id": 1234, "number": 8034, "title": "Test Proposal"},
+            "runs": all_runs[start:end],
+        }
+    elif "proposals/by_number" in url:
         result = dict(
-            runs=[dict(id=1,
-                       sample_id=1,
-                       experiment_id=1,
-                       cal_num_requests=1,
-                       begin_at=dt,
-                       end_at=dt,
-                       migration_request_at=dt,
-                       migration_begin_at=dt,
-                       migration_end_at=dt,
-                       cal_last_begin_at=dt,
-                       cal_last_end_at=dt)],
+            runs=[run_entry(1)],
             title="Test Proposal",
             id=1234,
         )
@@ -36,9 +57,9 @@ def mock_get(url, *, headers, **kwargs):
     elif "experiments" in url:
         result = dict(name="alchemy")
     elif "/runs/" in url:
-        result = {'techniques': [
-            {'identifier': 'PaNET01168', 'name': 'SFX'},
-            {'identifier': 'PaNET01188', 'name': 'SAXS'},
+        result = {"techniques": [
+            {"identifier": "PaNET01168", "name": "SFX"},
+            {"identifier": "PaNET01188", "name": "SAXS"},
         ]}
 
     response = MagicMock()
@@ -136,3 +157,16 @@ def test_search_source(proposal_with_run):
     # Check non-existent source
     result = prop.search_source("*agipd*", run=1)
     assert result[1] == []
+
+
+def test_mymdc_runs_pagination(mymdc_credentials):
+    prop = Proposal(8034)
+
+    with patch.object(prop._mymdc().session, "get", side_effect=mock_get) as mock_get_call:
+        runs = prop._get_runs_mymdc(page_size=3)
+        assert [r["run_number"] for r in runs] == [1, 2, 3, 4]
+        assert mock_get_call.call_count == 2
+
+    with pytest.raises(ValueError, match="page_size must be between 1 and 500"):
+        prop._get_runs_mymdc(page_size=1000)
+
