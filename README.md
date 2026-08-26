@@ -38,6 +38,9 @@ print(prop.runs())     # List runs found in /raw on disk
 print(prop[1].sample_name())
 print(prop.run_type(1))
 print(prop.run_techniques(1))
+print(prop.closest_run_with_type(572, "JF dark"))  # Previous matching run
+print(prop.closest_run_with_type(572, "JF dark", mode="closest"))
+print(prop[572].closest_run_with_type("JF dark"))
 
 # Open data (requires EXtra-data)
 run = prop[1].data()
