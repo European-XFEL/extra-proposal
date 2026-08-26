@@ -69,6 +69,32 @@ class RunReference:
         """
         return self.proposal.run_type(self.run_num)
 
+    def closest_run_with_type(
+        self,
+        run_type: str,
+        *,
+        mode: str = "previous",
+    ) -> int:
+        """Find a previous or closest run matching a run type.
+
+        The current run is used as the reference run. See
+        [Proposal.closest_run_with_type][extra_proposal.Proposal.closest_run_with_type]
+        for the search modes and error behavior.
+
+        Args:
+            run_type: Run type name to search for.
+            mode: ``"previous"`` to search earlier runs by number, or
+                ``"closest"`` to search by start time.
+
+        Returns:
+            The matching run number.
+        """
+        return self.proposal.closest_run_with_type(
+            self.run_num,
+            run_type,
+            mode=mode,
+        )
+
     def techniques(self) -> list[dict]:
         """Get the run techniques from myMdC for this run.
 
@@ -334,6 +360,52 @@ class Proposal:
                                        timeout=self._timeout)
 
         return data["name"]
+
+    def closest_run_with_type(
+        self,
+        run: int,
+        run_type: str,
+        *,
+        mode: str = "previous",
+    ) -> int:
+        """Find a previous or closest run matching a run type.
+
+        Args:
+            run: Reference run number.
+            run_type: Run type name to search for.
+            mode: ``"previous"`` to search earlier runs by number, or
+                ``"closest"`` to search by start time. The value is
+                case-insensitive and defaults to ``"previous"`` when blank.
+
+        Returns:
+            The matching run number.
+
+        Raises:
+            TypeError: If ``run_type`` or ``mode`` has the wrong type.
+            ValueError: If ``run_type`` is empty or ``mode`` is invalid.
+            requests.HTTPError: If MyMDC cannot find the proposal, reference
+                run, or matching run, or rejects the request.
+        """
+        if not isinstance(run_type, str):
+            raise TypeError("run_type must be a string")
+        if not run_type.strip():
+            raise ValueError("run_type must be a non-empty string")
+        if not isinstance(mode, str):
+            raise TypeError("mode must be a string")
+
+        search_mode = mode.strip().lower() or "previous"
+        if search_mode not in {"previous", "closest"}:
+            raise ValueError("mode must be 'previous' or 'closest'")
+
+        data = self._mymdc().get(
+            self._by_number_api_url(f"/runs/{run}/by_type"),
+            params={
+                "run_type_name": run_type,
+                "search_mode": search_mode,
+            },
+            timeout=self._timeout,
+        )
+        return int(data["matched_run"]["run_number"])
 
     def _get_samples_mymdc(self) -> list:
         prop_id = self._mymdc_info()["id"]
