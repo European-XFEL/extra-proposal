@@ -170,3 +170,61 @@ def test_mymdc_runs_pagination(mymdc_credentials):
     with pytest.raises(ValueError, match="page_size must be between 1 and 500"):
         prop._get_runs_mymdc(page_size=1000)
 
+
+@pytest.mark.parametrize(
+    "mode, expected_mode",
+    [
+        (None, "previous"),
+        ("", "previous"),
+        ("CLOSEST", "closest"),
+    ],
+)
+def test_closest_run_with_type(mymdc_credentials, mode, expected_mode):
+    prop = Proposal(8034)
+    response = MagicMock()
+    response.content = b'{"matched_run": {"run_number": 568}}'
+    response.json.return_value = {
+        "proposal_number": 8034,
+        "run_number": 572,
+        "run_type_name": "JF dark",
+        "search_mode": expected_mode,
+        "matched_run": {
+            "id": 100,
+            "run_number": 568,
+            "run_type": "JF dark",
+        },
+    }
+    response.status_code = 200
+
+    with patch.object(prop._mymdc().session, "get", return_value=response) as mock_get_call:
+        if mode is None:
+            result = prop.closest_run_with_type(572, "JF dark")
+        else:
+            result = prop.closest_run_with_type(572, "JF dark", mode=mode)
+
+    assert result == 568
+    mock_get_call.assert_called_once()
+    request = mock_get_call.call_args
+    assert request.args[0].endswith(
+        "/proposals/by_number/8034/runs/572/by_type"
+    )
+    assert request.kwargs["params"] == {
+        "run_type_name": "JF dark",
+        "search_mode": expected_mode,
+    }
+    assert request.kwargs["timeout"] == 10
+
+
+def test_closest_run_with_type_validates_input(mymdc_credentials):
+    prop = Proposal(8034)
+
+    with patch.object(prop._mymdc().session, "get") as mock_get_call:
+        with pytest.raises(ValueError, match="run_type must be a non-empty string"):
+            prop.closest_run_with_type(572, " ")
+        with pytest.raises(TypeError, match="run_type must be a string"):
+            prop.closest_run_with_type(572, None)
+        with pytest.raises(ValueError, match="mode must be 'previous' or 'closest'"):
+            prop.closest_run_with_type(572, "JF dark", mode="nearest")
+
+    mock_get_call.assert_not_called()
+
